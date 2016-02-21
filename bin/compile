@@ -55,6 +55,11 @@ PATH=$PATH:$build_dir/vendor/node/bin
 # Run subsequent node/npm commands from the build path
 cd $build_dir
 
+# we need slim for build process, so install it
+export GEM_HOME=./.gems
+export PATH=$GEM_HOME/bin:$PATH
+gem install slim
+
 # If node_modules directory is checked into source control then
 # rebuild any native deps. Otherwise, restore from the build cache.
 if test -d $build_dir/node_modules; then
@@ -64,6 +69,14 @@ if test -d $build_dir/node_modules; then
 elif test -d $cache_dir/node/node_modules; then
   status "Restoring node_modules directory from cache"
   cp -r $cache_dir/node/node_modules $build_dir/
+
+  if test -d $cache_dir/node/bower_components; then
+    status "Restoring bower_components directory from cache"
+    cp -r $cache_dir/node/bower_components $build_dir/gulp
+
+    status "Pruning bower dependencies..."
+    bower prune 2>&1 | indent
+  fi
 
   status "Pruning cached dependencies not specified in package.json"
   npm prune 2>&1 | indent
@@ -84,7 +97,7 @@ fi
 
   status "Installing dependencies"
   # Make npm output to STDOUT instead of its default STDERR
-  npm install --userconfig $build_dir/.npmrc --production 2>&1 | indent
+  npm install --userconfig $build_dir/.npmrc 2>&1 | indent
 )
 
 # Persist goodies like node-version in the slug
@@ -103,6 +116,11 @@ mkdir -p $cache_dir/node
 if test -d $build_dir/node_modules; then
   status "Caching node_modules directory for future builds"
   cp -r $build_dir/node_modules $cache_dir/node
+fi
+
+if test -d $build_dir/gulp/bower_components; then
+  status "Caching bower_components directory for future builds"
+  cp -r $build_dir/gulp/bower_components $cache_dir/node
 fi
 
 # Copy goodies to the cache
@@ -134,7 +152,8 @@ echo "export PATH=\"\$HOME/vendor/node/bin:\$HOME/bin:\$HOME/node_modules/.bin:\
 
 # Check and run gulp
 (
-  if [ -f $build_dir/gulpfile.js ] || [ -f $build_dir/gulpfile.babel.js ]; then
+  if [ -f $build_dir/gulpfile.js ] || [ -f $build_dir/gulpfile.babel.js ] ||
+     [ -f $build_dir/gulpfile.coffee ]; then
     # get the env vars
     if [ -d "$env_dir" ]; then
       status "Exporting config vars to environment"
@@ -143,8 +162,8 @@ echo "export PATH=\"\$HOME/vendor/node/bin:\$HOME/bin:\$HOME/node_modules/.bin:\
 
     # Install gulp locally
     npm install gulp
-    status "Found gulpfile, running gulp heroku:$NODE_ENV task"
-    $build_dir/node_modules/.bin/gulp heroku:$NODE_ENV
+    status "Found gulpfile, running gulp heroku-build task"
+    $build_dir/node_modules/.bin/gulp heroku-build
   else
     status "No gulpfile found"
   fi
