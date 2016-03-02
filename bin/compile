@@ -73,9 +73,6 @@ elif test -d $cache_dir/node/node_modules; then
   if test -d $cache_dir/node/bower_components; then
     status "Restoring bower_components directory from cache"
     cp -r $cache_dir/node/bower_components $build_dir/gulp
-
-    status "Pruning bower dependencies..."
-    bower prune 2>&1 | indent
   fi
 
   status "Pruning cached dependencies not specified in package.json"
@@ -94,6 +91,9 @@ fi
     status "Exporting config vars to environment"
     export_env_dir $env_dir
   fi
+
+  status "Pruning bower dependencies..."
+  bower prune 2>&1 | indent
 
   status "Installing dependencies"
   # Make npm output to STDOUT instead of its default STDERR
